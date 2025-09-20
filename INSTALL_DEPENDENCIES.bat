@@ -1,19 +1,23 @@
 @echo off
-title Installing Frontend Dependencies
+title Installing Minimal Frontend Dependencies
 echo.
 echo ========================================
-echo   INSTALLING FRONTEND DEPENDENCIES
+echo   INSTALLING MINIMAL DEPENDENCIES
 echo ========================================
 echo.
 
 cd /d "%~dp0\frontend"
 
-echo [INFO] Installing dependencies...
+echo [INFO] Cleaning old dependencies...
+if exist node_modules rmdir /s /q node_modules
+if exist package-lock.json del package-lock.json
+
+echo [INFO] Installing minimal dependencies...
 call npm install
 
 echo.
-echo [INFO] Dependencies installed successfully!
-echo [INFO] You can now start the frontend with: npm run dev
-echo.
+echo [INFO] Minimal dependencies installed successfully!
+echo [INFO] Starting frontend server...
+call npm run dev
 
 pause
