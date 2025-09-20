@@ -89,6 +89,8 @@ Thumbs.db
 
 # Exclude large files
 *.data-00000-of-00001
+*.zip
+CrowdControl-FullStack.zip
 
 # Logs
 logs
