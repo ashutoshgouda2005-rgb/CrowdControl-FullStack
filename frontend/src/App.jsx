@@ -5,6 +5,7 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Uploads from './pages/Uploads'
 import LiveStream from './pages/LiveStream'
+import LiveDetection from './components/LiveDetection'
 import Test from './pages/Test'
 import NavBar from './components/NavBar'
 import DeviceInfo from './components/DeviceInfo'
@@ -43,6 +44,13 @@ export default function App() {
           <PrivateRoute>
             <div className="container-custom py-8">
               <LiveStream />
+            </div>
+          </PrivateRoute>
+        } />
+        <Route path="/live-detection" element={
+          <PrivateRoute>
+            <div className="container-custom py-8">
+              <LiveDetection />
             </div>
           </PrivateRoute>
         } />
