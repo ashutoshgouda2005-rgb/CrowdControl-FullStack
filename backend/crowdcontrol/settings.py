@@ -75,16 +75,25 @@ if DATABASE_URL:
         'default': dj_database_url.config(default=DATABASE_URL)
     }
 else:
+    # Use SQLite for development (easier setup)
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.environ.get('DB_NAME', 'crowdcontrol_db'),
-            'USER': os.environ.get('DB_USER', 'postgres'),
-            'PASSWORD': os.environ.get('DB_PASSWORD', 'password'),
-            'HOST': os.environ.get('DB_HOST', 'localhost'),
-            'PORT': os.environ.get('DB_PORT', '5432'),
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
+    
+    # PostgreSQL configuration (commented out for development)
+    # DATABASES = {
+    #     'default': {
+    #         'ENGINE': 'django.db.backends.postgresql',
+    #         'NAME': os.environ.get('DB_NAME', 'crowdcontrol_db'),
+    #         'USER': os.environ.get('DB_USER', 'postgres'),
+    #         'PASSWORD': os.environ.get('DB_PASSWORD', 'password'),
+    #         'HOST': os.environ.get('DB_HOST', 'localhost'),
+    #         'PORT': os.environ.get('DB_PORT', '5432'),
+    #     }
+    # }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [

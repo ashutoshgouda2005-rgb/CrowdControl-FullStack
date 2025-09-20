@@ -1,14 +1,34 @@
-import tensorflow.compat.v1 as tf
-import numpy as np
-import cv2
-from django.conf import settings
+import logging
 import os
-import base64
-from io import BytesIO
+import numpy as np
+from django.conf import settings
+
+logger = logging.getLogger(__name__)
+
+# Try to import TensorFlow with fallback
+try:
+    import tensorflow.compat.v1 as tf
+    tf.disable_v2_behavior()
+    TF_AVAILABLE = True
+except ImportError:
+    try:
+        import tensorflow as tf
+        TF_AVAILABLE = True
+    except ImportError:
+        logger.warning("TensorFlow not available. ML predictions will use demo mode.")
+        TF_AVAILABLE = False
+
+# Try to import OpenCV with fallback
+try:
+    import cv2
+    CV2_AVAILABLE = True
+except ImportError:
+    logger.warning("OpenCV not available. Using demo mode for image processing.")
+    CV2_AVAILABLE = False
+
 from PIL import Image
-
-tf.disable_v2_behavior()
-
+from io import BytesIO
+from base64 import b64decode
 
 class CrowdPredictor:
     def __init__(self):
@@ -25,9 +45,17 @@ class CrowdPredictor:
     
     def load_model(self):
         """Load the trained TensorFlow model and face cascade"""
+        if not TF_AVAILABLE:
+            logger.warning("TensorFlow not available, using demo mode")
+            return False
+            
         try:
             # Load TensorFlow model
-            self.sess = tf.Session()
+            if hasattr(tf, 'Session'):
+                self.sess = tf.Session()
+            else:
+                # TensorFlow 2.x compatibility
+                self.sess = tf.compat.v1.Session()
             model_path = settings.ML_MODEL_PATH
             
             if os.path.exists(model_path + '.meta'):
@@ -47,13 +75,16 @@ class CrowdPredictor:
                 return False
             
             # Load face cascade
-            cascade_path = settings.HAAR_CASCADE_PATH
-            if os.path.exists(cascade_path):
-                self.face_cascade = cv2.CascadeClassifier(cascade_path)
-                print("Face cascade loaded successfully")
+            if CV2_AVAILABLE:
+                cascade_path = settings.HAAR_CASCADE_PATH
+                if os.path.exists(cascade_path):
+                    self.face_cascade = cv2.CascadeClassifier(cascade_path)
+                    print("Face cascade loaded successfully")
+                else:
+                    print(f"Haar cascade file not found at {cascade_path}")
+                    # Don't return False, continue without face detection
             else:
-                print(f"Haar cascade file not found at {cascade_path}")
-                return False
+                print("OpenCV not available, face detection disabled")
             
             self.model_loaded = True
             return True
@@ -79,12 +110,24 @@ class CrowdPredictor:
             
             # Convert to grayscale if needed
             if len(image.shape) == 3:
-                gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+                if CV2_AVAILABLE:
+                    gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+                else:
+                    # Fallback grayscale conversion
+                    gray = np.dot(image[...,:3], [0.2989, 0.5870, 0.1140])
             else:
                 gray = image
             
             # Resize to 100x100
-            resized = cv2.resize(gray, (100, 100))
+            if CV2_AVAILABLE:
+                resized = cv2.resize(gray, (100, 100))
+            else:
+                # Fallback resize using PIL
+                from PIL import Image as PILImage
+                pil_img = PILImage.fromarray(gray.astype('uint8'))
+                pil_img = pil_img.resize((100, 100))
+                resized = np.array(pil_img)
+            
             img_flat = resized.flatten().astype('float32').reshape(1, -1)
             
             return img_flat, gray, image
