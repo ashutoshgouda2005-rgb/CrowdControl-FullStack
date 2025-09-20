@@ -5,6 +5,7 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Uploads from './pages/Uploads'
 import LiveStream from './pages/LiveStream'
+import Test from './pages/Test'
 import NavBar from './components/NavBar'
 
 function PrivateRoute({ children }) {
@@ -18,6 +19,7 @@ export default function App() {
       <NavBar />
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/test" element={<Test />} />
         <Route path="/login" element={
           <div className="container-custom py-8">
             <Login />

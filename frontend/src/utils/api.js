@@ -178,6 +178,27 @@ export const streamsApi = {
       headers: getAuthHeaders()
     })
     return handleResponse(response)
+  },
+
+  // Analyze frame
+  analyzeFrame: async (frameData) => {
+    const response = await fetch(`${API_BASE_URL}/api/analysis/frame/`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(frameData)
+    })
+    return handleResponse(response)
+  },
+
+  // Get alerts (for streams)
+  alerts: async (params = {}) => {
+    const queryString = new URLSearchParams(params).toString()
+    const url = `${API_BASE_URL}/api/alerts/${queryString ? '?' + queryString : ''}`
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: getAuthHeaders()
+    })
+    return handleResponse(response)
   }
 }
 

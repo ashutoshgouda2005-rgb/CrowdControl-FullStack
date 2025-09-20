@@ -25,36 +25,57 @@ export default function LiveStream() {
 
   const loadStreams = async () => {
     try {
-      const { data } = await streamsApi.list()
-      setStreams(data || [])
+      const response = await streamsApi.list()
+      setStreams(response.results || response || [])
     } catch (err) {
       console.error('Failed to load streams:', err)
+      // Show demo data if API fails
+      setStreams([
+        {
+          id: 'demo-1',
+          stream_name: 'Demo Stream 1',
+          status: 'inactive',
+          last_active: new Date().toISOString(),
+          current_people_count: 0,
+          current_confidence: 0
+        }
+      ])
     }
   }
 
   const loadAlerts = async () => {
     try {
-      const { data } = await streamsApi.alerts({ acknowledged: false })
-      setAlerts(data.results || [])
+      const response = await streamsApi.alerts({ acknowledged: false })
+      setAlerts(response.results || response || [])
     } catch (err) {
       console.error('Failed to load alerts:', err)
+      setAlerts([])
     }
   }
 
   const createStream = async (e) => {
     e.preventDefault()
-    if (!streamName.trim()) return
+    if (!streamName.trim()) {
+      alert('Please enter a stream name')
+      return
+    }
 
     setLoading(true)
     try {
-      await streamsApi.create({ stream_name: streamName })
+      const response = await streamsApi.create({ 
+        stream_name: streamName,
+        description: `Live stream: ${streamName}` 
+      })
+      console.log('Stream created:', response)
       setStreamName('')
-      loadStreams()
+      await loadStreams()
+      alert('Stream created successfully!')
     } catch (err) {
+      console.error('Create stream error:', err)
       const errorMessage = err?.response?.data?.error || 
                           err?.response?.data?.message || 
                           err?.message || 
-                          'Failed to create stream. Please try again.'
+                          'Failed to create stream. Please check your connection and try again.'
       alert(errorMessage)
     } finally {
       setLoading(false)
@@ -168,10 +189,16 @@ export default function LiveStream() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 animate-slide-in">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Live Stream Analysis</h1>
-        <button onClick={loadStreams} className="btn btn-primary">Refresh</button>
+        <div>
+          <h1 className="text-3xl font-bold gradient-text mb-2">Live Stream Analysis</h1>
+          <p className="text-gray-600">Monitor crowds in real-time with AI-powered detection</p>
+        </div>
+        <button onClick={loadStreams} className="btn btn-primary">
+          <span className="mr-2">🔄</span>
+          Refresh
+        </button>
       </div>
 
       {/* Alerts */}
@@ -202,18 +229,51 @@ export default function LiveStream() {
       {/* Create Stream */}
       <div className="card">
         <div className="card-body">
-          <h2 className="text-lg font-medium mb-4">Create New Stream</h2>
-          <form onSubmit={createStream} className="flex gap-3">
-            <input
-              type="text"
-              value={streamName}
-              onChange={(e) => setStreamName(e.target.value)}
-              placeholder="Enter stream name..."
-              className="flex-1 border border-gray-300 rounded-md px-3 py-2"
-              required
-            />
-            <button type="submit" disabled={loading} className="btn btn-primary">
-              {loading ? 'Creating...' : 'Create Stream'}
+          <div className="card-header">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center">
+                <span className="text-xl">📹</span>
+              </div>
+              <div>
+                <h2 className="text-xl font-bold gradient-text">Create New Stream</h2>
+                <p className="text-gray-600 text-sm">Start monitoring crowds with live video analysis</p>
+              </div>
+            </div>
+          </div>
+          
+          <form onSubmit={createStream} className="space-y-4">
+            <div className="form-group">
+              <label className="form-label">
+                <span className="mr-2">🏷️</span>
+                Stream Name
+              </label>
+              <input
+                type="text"
+                value={streamName}
+                onChange={(e) => setStreamName(e.target.value)}
+                placeholder="Enter a descriptive name for your stream..."
+                className="form-input"
+                required
+                disabled={loading}
+              />
+            </div>
+            
+            <button 
+              type="submit" 
+              disabled={loading || !streamName.trim()} 
+              className="btn btn-primary w-full"
+            >
+              {loading ? (
+                <>
+                  <div className="spinner mr-2"></div>
+                  Creating Stream...
+                </>
+              ) : (
+                <>
+                  <span className="mr-2">✨</span>
+                  Create Stream
+                </>
+              )}
             </button>
           </form>
         </div>

@@ -89,106 +89,139 @@ export default function Register() {
             </div>
           )}
         
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-gray-700 mb-1">First Name</label>
+          <form onSubmit={onSubmit} className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="form-group">
+                <label className="form-label">
+                  <span className="mr-2">👤</span>
+                  First Name
+                </label>
+                <input 
+                  name="firstName"
+                  value={formData.firstName} 
+                  onChange={handleChange} 
+                  className="form-input" 
+                  placeholder="John" 
+                  required
+                  disabled={loading}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">
+                  <span className="mr-2">👤</span>
+                  Last Name
+                </label>
+                <input 
+                  name="lastName"
+                  value={formData.lastName} 
+                  onChange={handleChange} 
+                  className="form-input" 
+                  placeholder="Doe" 
+                  required
+                  disabled={loading}
+                />
+              </div>
+            </div>
+            
+            <div className="form-group">
+              <label className="form-label">
+                <span className="mr-2">🏷️</span>
+                Username
+              </label>
               <input 
-                name="firstName"
-                value={formData.firstName} 
+                name="username"
+                value={formData.username} 
                 onChange={handleChange} 
-                className="w-full border rounded px-3 py-2 text-sm" 
-                placeholder="John" 
+                className="form-input" 
+                placeholder="Choose a username" 
+                required
+                minLength={3}
+                disabled={loading}
+              />
+            </div>
+            
+            <div className="form-group">
+              <label className="form-label">
+                <span className="mr-2">📧</span>
+                Email
+              </label>
+              <input 
+                type="email"
+                name="email"
+                value={formData.email} 
+                onChange={handleChange} 
+                className="form-input" 
+                placeholder="your@email.com" 
                 required
                 disabled={loading}
               />
             </div>
-            <div>
-              <label className="block text-sm text-gray-700 mb-1">Last Name</label>
+            
+            <div className="form-group">
+              <label className="form-label">
+                <span className="mr-2">🔒</span>
+                Password
+              </label>
               <input 
-                name="lastName"
-                value={formData.lastName} 
+                type="password"
+                name="password"
+                value={formData.password} 
                 onChange={handleChange} 
-                className="w-full border rounded px-3 py-2 text-sm" 
-                placeholder="Doe" 
+                className="form-input" 
+                placeholder="Create a strong password" 
                 required
+                minLength={6}
                 disabled={loading}
               />
             </div>
-          </div>
-          
-          <div>
-            <label className="block text-sm text-gray-700 mb-1">Username</label>
-            <input 
-              name="username"
-              value={formData.username} 
-              onChange={handleChange} 
-              className="w-full border rounded px-3 py-2 text-sm" 
-              placeholder="Choose a username" 
-              required
-              minLength={3}
+            
+            <div className="form-group">
+              <label className="form-label">
+                <span className="mr-2">🔐</span>
+                Confirm Password
+              </label>
+              <input 
+                type="password"
+                name="confirmPassword"
+                value={formData.confirmPassword} 
+                onChange={handleChange} 
+                className="form-input" 
+                placeholder="Confirm your password" 
+                required
+                minLength={6}
+                disabled={loading}
+              />
+            </div>
+            
+            <button 
+              type="submit" 
+              className="btn btn-primary w-full" 
               disabled={loading}
-            />
-          </div>
+            >
+              {loading ? (
+                <>
+                  <div className="spinner mr-2"></div>
+                  Creating Account...
+                </>
+              ) : (
+                <>
+                  <span className="mr-2">✨</span>
+                  Create Account
+                </>
+              )}
+            </button>
+          </form>
           
-          <div>
-            <label className="block text-sm text-gray-700 mb-1">Email</label>
-            <input 
-              type="email"
-              name="email"
-              value={formData.email} 
-              onChange={handleChange} 
-              className="w-full border rounded px-3 py-2 text-sm" 
-              placeholder="your@email.com" 
-              required
-              disabled={loading}
-            />
+          <div className="text-center mt-8 pt-6 border-t border-gray-100">
+            <p className="text-gray-600 mb-4">Already have an account?</p>
+            <Link 
+              to="/login" 
+              className="btn btn-outline w-full"
+            >
+              <span className="mr-2">🔐</span>
+              Sign In
+            </Link>
           </div>
-          
-          <div>
-            <label className="block text-sm text-gray-700 mb-1">Password</label>
-            <input 
-              type="password"
-              name="password"
-              value={formData.password} 
-              onChange={handleChange} 
-              className="w-full border rounded px-3 py-2 text-sm" 
-              placeholder="Create a strong password" 
-              required
-              minLength={6}
-              disabled={loading}
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm text-gray-700 mb-1">Confirm Password</label>
-            <input 
-              type="password"
-              name="confirmPassword"
-              value={formData.confirmPassword} 
-              onChange={handleChange} 
-              className="w-full border rounded px-3 py-2 text-sm" 
-              placeholder="Confirm your password" 
-              required
-              minLength={6}
-              disabled={loading}
-            />
-          </div>
-          
-          <button 
-            type="submit" 
-            className="btn btn-primary w-full h-11" 
-            disabled={loading}
-          >
-            {loading ? 'Creating Account...' : 'Create Account'}
-          </button>
-        </form>
-        
-        <div className="text-sm text-gray-600 mt-4 text-center">
-          Already have an account?{' '}
-          <Link to="/login" className="text-blue-600 hover:text-blue-800 font-medium">
-            Sign in here
-          </Link>
         </div>
       </div>
     </div>
