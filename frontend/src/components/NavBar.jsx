@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { authApi } from '../lib/api'
+import { authApi } from '../utils/api'
 
 export default function NavBar() {
   const location = useLocation()
@@ -43,7 +43,10 @@ export default function NavBar() {
                 <button className="btn btn-danger h-9" onClick={logout}>Logout</button>
               </>
             ) : (
-              <Link className="btn btn-primary h-9" to="/login">Login</Link>
+              <div className="flex gap-2">
+                <Link className="btn btn-outline h-9" to="/register">Sign Up</Link>
+                <Link className="btn btn-primary h-9" to="/login">Login</Link>
+              </div>
             )}
           </div>
         </div>

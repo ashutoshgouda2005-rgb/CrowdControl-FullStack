@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { authApi } from '../lib/api'
+import { useNavigate, Link } from 'react-router-dom'
+import { authApi } from '../utils/api'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -57,7 +57,12 @@ export default function Login() {
           </div>
           <button className="btn btn-primary w-full h-11" disabled={loading}>{loading ? 'Signing in...' : 'Sign In'}</button>
         </form>
-        <div className="text-sm text-gray-600 mt-4">No account? Ask admin to create one or extend the form to register.</div>
+        <div className="text-sm text-gray-600 mt-4 text-center">
+          Don't have an account?{' '}
+          <Link to="/register" className="text-blue-600 hover:text-blue-800 font-medium">
+            Create one here
+          </Link>
+        </div>
       </div>
     </div>
   )

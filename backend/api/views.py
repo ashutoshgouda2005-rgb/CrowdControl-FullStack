@@ -22,6 +22,46 @@ from .serializers import (
 from .ml_predictor import get_predictor
 
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def api_root(request):
+    """API root endpoint with available endpoints"""
+    return Response({
+        'message': 'CrowdControl API v1.0',
+        'description': 'AI-powered crowd control and stampede detection system',
+        'endpoints': {
+            'health': '/api/health/',
+            'authentication': {
+                'register': '/api/auth/register/',
+                'login': '/api/auth/login/',
+                'profile': '/api/auth/profile/',
+            },
+            'media': {
+                'upload': '/api/media/upload/',
+                'list': '/api/media/list/',
+                'detail': '/api/media/{id}/',
+            },
+            'streams': {
+                'create': '/api/streams/create/',
+                'list': '/api/streams/list/',
+                'detail': '/api/streams/{id}/',
+                'start': '/api/streams/{id}/start/',
+                'stop': '/api/streams/{id}/stop/',
+            },
+            'analysis': {
+                'frame': '/api/analysis/frame/',
+                'results': '/api/analysis/results/',
+            },
+            'alerts': {
+                'list': '/api/alerts/',
+                'acknowledge': '/api/alerts/{id}/acknowledge/',
+            }
+        },
+        'status': 'healthy',
+        'timestamp': timezone.now().isoformat()
+    })
+
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register(request):

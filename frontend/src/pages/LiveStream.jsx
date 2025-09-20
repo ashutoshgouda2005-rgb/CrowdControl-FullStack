@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { streamsApi, getWsBase } from '../lib/api'
+import { streamsApi, getWsBase } from '../utils/api'
 
 export default function LiveStream() {
   const [streams, setStreams] = useState([])

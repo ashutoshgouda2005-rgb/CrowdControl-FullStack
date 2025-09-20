@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { mediaApi } from '../lib/api'
+import { mediaApi } from '../utils/api'
 
 export default function Uploads() {
   const [uploads, setUploads] = useState([])
