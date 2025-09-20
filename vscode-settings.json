@@ -1,0 +1,15 @@
+{
+  "python.defaultInterpreterPath": "./backend/venv/Scripts/python.exe",
+  "python.terminal.activateEnvironment": true,
+  "eslint.workingDirectories": ["frontend"],
+  "typescript.preferences.includePackageJsonAutoImports": "auto",
+  "emmet.includeLanguages": {
+    "javascript": "javascriptreact"
+  },
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+  "git.enableSmartCommit": true,
+  "git.confirmSync": false,
+  "terminal.integrated.defaultProfile.windows": "Command Prompt"
+}

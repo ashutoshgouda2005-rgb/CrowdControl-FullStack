@@ -1,0 +1,20 @@
+[build]
+  base = "frontend"
+  publish = "frontend/dist"
+  command = "npm run build"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[dev]
+  command = "npm run dev"
+  port = 5173
+  publish = "frontend/dist"
+
+# Note: This deployment only includes the frontend.
+# The Django backend needs to be deployed separately to a service like Railway, Heroku, or DigitalOcean.
