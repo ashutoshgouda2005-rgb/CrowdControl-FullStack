@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { streamsApi, getWsBase } from '../utils/api'
 import StatusAlert from '../components/StatusAlert'
+import CameraPermissionHandler from '../components/CameraPermissionHandler'
 
 export default function LiveStream() {
   const [streams, setStreams] = useState([])
@@ -10,6 +11,8 @@ export default function LiveStream() {
   const [alerts, setAlerts] = useState([])
   const [streamName, setStreamName] = useState('')
   const [loading, setLoading] = useState(false)
+  const [cameraPermissionGranted, setCameraPermissionGranted] = useState(false)
+  const [showPermissionHandler, setShowPermissionHandler] = useState(false)
   
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
@@ -99,46 +102,79 @@ export default function LiveStream() {
     }
   }
 
+  const handleCameraPermissionGranted = () => {
+    setCameraPermissionGranted(true)
+    setShowPermissionHandler(false)
+  }
+
+  const handleCameraPermissionDenied = (error) => {
+    setCameraPermissionGranted(false)
+    console.error('Camera permission denied:', error)
+  }
+
   const startStreaming = async (stream) => {
+    // Check camera permission first
+    if (!cameraPermissionGranted) {
+      setShowPermissionHandler(true)
+      return
+    }
+
     try {
       // Start the stream on backend first
       await streamsApi.start(stream.id)
       
-      // Get user media with better error handling
+      // Get user media with comprehensive error handling
       let mediaStream
       try {
+        // Try with preferred settings first
         mediaStream = await navigator.mediaDevices.getUserMedia({ 
           video: { 
-            width: { ideal: 640 }, 
-            height: { ideal: 480 },
-            facingMode: 'user' // Use front camera by default
+            width: { ideal: 640, min: 320 }, 
+            height: { ideal: 480, min: 240 },
+            facingMode: 'user',
+            frameRate: { ideal: 30, min: 15 }
           }, 
           audio: false 
         })
       } catch (mediaErr) {
-        console.error('Camera access failed:', mediaErr)
-        alert('Camera access denied or not available. Please allow camera access and try again.')
-        return
+        console.warn('Failed with preferred settings, trying basic settings:', mediaErr)
+        
+        try {
+          // Fallback to basic settings
+          mediaStream = await navigator.mediaDevices.getUserMedia({ 
+            video: true, 
+            audio: false 
+          })
+        } catch (fallbackErr) {
+          console.error('Camera access completely failed:', fallbackErr)
+          throw new Error(getCameraErrorMessage(fallbackErr))
+        }
       }
       
+      // Set up video element
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream
-        await new Promise((resolve) => {
-          videoRef.current.onloadedmetadata = resolve
+        
+        // Wait for video to be ready
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('Video load timeout')), 10000)
+          
+          videoRef.current.onloadedmetadata = () => {
+            clearTimeout(timeout)
+            videoRef.current.play()
+              .then(resolve)
+              .catch(reject)
+          }
         })
       }
       
+      // Update state
       setActiveStream(stream)
       setIsStreaming(true)
       
-      // Connect WebSocket for real-time updates with better error handling
+      // Set up WebSocket for real-time communication
+      const wsUrl = `${getWsBase()}/ws/stream/${stream.id}/`
       try {
-        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-        const wsHost = window.location.hostname
-        const wsPort = window.location.hostname === 'localhost' ? '8000' : window.location.port || '8000'
-        const wsUrl = `${wsProtocol}//${wsHost}:${wsPort}/ws/stream/${stream.id}/`
-        
-        console.log('Connecting to WebSocket:', wsUrl)
         wsRef.current = new WebSocket(wsUrl)
         
         wsRef.current.onopen = () => {
@@ -165,33 +201,49 @@ export default function LiveStream() {
         wsRef.current.onclose = () => {
           console.log('WebSocket connection closed')
         }
+        
       } catch (wsErr) {
-        console.error('WebSocket connection failed:', wsErr)
-        // Continue without WebSocket - polling will still work
+        console.warn('WebSocket connection failed, using polling instead')
       }
       
-      // Start frame analysis with better timing
-      setTimeout(() => {
-        intervalRef.current = setInterval(() => {
-          captureAndAnalyze(stream.id)
-        }, 3000) // Analyze every 3 seconds for better performance
-      }, 1000) // Wait 1 second for video to stabilize
+      // Start periodic frame analysis
+      intervalRef.current = setInterval(() => {
+        captureAndAnalyze(stream.id)
+      }, 2000) // Analyze every 2 seconds
       
       alert('Live streaming started! AI analysis is now active.')
       
     } catch (err) {
       console.error('Failed to start streaming:', err)
-      let errorMessage = 'Failed to start streaming. '
       
-      if (err.message.includes('Permission denied')) {
-        errorMessage += 'Camera access was denied. Please allow camera access and try again.'
-      } else if (err.message.includes('not found')) {
-        errorMessage += 'No camera found. Please connect a camera and try again.'
-      } else {
-        errorMessage += err.message || 'Please check your camera and connection.'
+      // Clean up on error
+      if (videoRef.current?.srcObject) {
+        const tracks = videoRef.current.srcObject.getTracks()
+        tracks.forEach(track => track.stop())
+        videoRef.current.srcObject = null
       }
       
-      alert(errorMessage)
+      alert(err.message || 'Failed to start streaming. Please try again.')
+    }
+  }
+
+  const getCameraErrorMessage = (error) => {
+    switch (error.name) {
+      case 'NotAllowedError':
+      case 'PermissionDeniedError':
+        return 'Camera access was denied. Please allow camera access and refresh the page.'
+      case 'NotFoundError':
+      case 'DevicesNotFoundError':
+        return 'No camera found. Please connect a camera and try again.'
+      case 'NotReadableError':
+      case 'TrackStartError':
+        return 'Camera is already in use by another application. Please close other apps using the camera.'
+      case 'OverconstrainedError':
+        return 'Camera does not meet the requirements. Please try with a different camera.'
+      case 'SecurityError':
+        return 'Camera access blocked due to security restrictions. Please ensure you are using HTTPS or localhost.'
+      default:
+        return `Camera access failed: ${error.message || 'Unknown error'}`
     }
   }
 

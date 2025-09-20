@@ -20,6 +20,7 @@ from collections import deque
 
 from inference_engine import create_inference_engine, RiskLevel, DetectionResult
 from config import CONFIG
+from improved_people_detector import ImprovedPeopleDetector
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,9 @@ class ProductionStampedePredictor:
         
         # Initialize inference engine
         self.inference_engine = create_inference_engine(self.config)
+        
+        # Initialize improved people detector
+        self.people_detector = ImprovedPeopleDetector(self.config)
         
         # Model loading state
         self.model_loaded = False
@@ -106,6 +110,101 @@ class ProductionStampedePredictor:
         self.fallback_mode = True
         self.model_loaded = False
         logger.warning(f"Fallback mode enabled: {reason}")
+    
+    def _recalculate_risk_with_accurate_count(self, prediction_dict: Dict, 
+                                            accurate_count: int, image_shape: Tuple) -> Dict:
+        """Recalculate risk assessment with accurate people count"""
+        
+        # Calculate new crowd density
+        h, w = image_shape[:2]
+        frame_area = h * w
+        estimated_area_per_person = 2.0  # square meters
+        frame_area_m2 = frame_area / (100 * 100)  # Convert pixels to rough m2 estimate
+        crowd_density = min(accurate_count / max(frame_area_m2, 1.0), 1.0)
+        
+        # Update crowd density
+        prediction_dict['crowd_density'] = round(crowd_density, 3)
+        
+        # Recalculate risk based on accurate count
+        if accurate_count == 0:
+            prediction_dict['crowd_detected'] = False
+            prediction_dict['is_stampede_risk'] = False
+            prediction_dict['status_message'] = "No people detected"
+            prediction_dict['risk_level'] = 'normal'
+        elif accurate_count <= 5:
+            prediction_dict['crowd_detected'] = True
+            prediction_dict['is_stampede_risk'] = False
+            prediction_dict['status_message'] = f"Small group detected ({accurate_count} people)"
+            prediction_dict['risk_level'] = 'normal'
+        elif accurate_count <= 15:
+            prediction_dict['crowd_detected'] = True
+            prediction_dict['is_stampede_risk'] = False
+            prediction_dict['status_message'] = f"Moderate crowd detected ({accurate_count} people)"
+            prediction_dict['risk_level'] = 'crowded'
+        elif accurate_count <= 25:
+            prediction_dict['crowd_detected'] = True
+            prediction_dict['is_stampede_risk'] = True
+            prediction_dict['status_message'] = f"Large crowd detected ({accurate_count} people) - Monitor closely"
+            prediction_dict['risk_level'] = 'high_risk'
+        else:
+            prediction_dict['crowd_detected'] = True
+            prediction_dict['is_stampede_risk'] = True
+            prediction_dict['status_message'] = f"Very large crowd detected ({accurate_count} people) - High stampede risk!"
+            prediction_dict['risk_level'] = 'stampede_imminent'
+        
+        # Update risk factors
+        prediction_dict['risk_factors'] = {
+            'high_people_count': accurate_count > 15,
+            'high_density': crowd_density > 0.6,
+            'accurate_detection': True,
+            'multiple_indicators': sum([
+                accurate_count > 15,
+                crowd_density > 0.6,
+                prediction_dict.get('confidence_score', 0) > 0.8
+            ])
+        }
+        
+        return prediction_dict
+    
+    def _create_fallback_with_real_detection(self, people_result, image_shape: Tuple) -> Dict:
+        """Create fallback prediction using real people detection"""
+        
+        accurate_count = people_result.people_count
+        
+        # Base prediction structure
+        prediction_dict = {
+            'crowd_detected': accurate_count > 0,
+            'confidence_score': 0.85 if accurate_count > 0 else 0.1,
+            'people_count': accurate_count,
+            'processing_time_ms': people_result.processing_time_ms,
+            'timestamp': time.time(),
+            
+            # Detection details
+            'raw_detections': people_result.raw_detections,
+            'filtered_detections': people_result.filtered_detections,
+            'detection_confidence_threshold': people_result.confidence_threshold,
+            'nms_threshold': people_result.nms_threshold,
+            'detection_processing_time': people_result.processing_time_ms,
+            
+            # Bounding boxes
+            'bounding_boxes': [
+                [det.bbox[0], det.bbox[1], det.bbox[2], det.bbox[3]] 
+                for det in people_result.detections
+            ] if people_result.detections else [],
+            
+            # System status
+            'fallback_mode': True,
+            'demo_mode': False,  # This is real detection, not demo
+            'model_active': False,
+            'model_version': 'people_detector_v1.0',
+        }
+        
+        # Calculate risk with accurate count
+        prediction_dict = self._recalculate_risk_with_accurate_count(
+            prediction_dict, accurate_count, image_shape
+        )
+        
+        return prediction_dict
     
     def load_model(self, model_path: str = None) -> bool:
         """
@@ -213,11 +312,41 @@ class ProductionStampedePredictor:
                     try:
                         result = self.inference_engine.predict_frame(image_array)
                         prediction_dict = self._convert_result_to_dict(result)
+                        
+                        # Use improved people detector for more accurate counting
+                        people_result = self.people_detector.detect_people(image_array, debug=True)
+                        
+                        # Override people count with improved detection
+                        prediction_dict['people_count'] = people_result.people_count
+                        prediction_dict['raw_detections'] = people_result.raw_detections
+                        prediction_dict['filtered_detections'] = people_result.filtered_detections
+                        prediction_dict['detection_confidence_threshold'] = people_result.confidence_threshold
+                        prediction_dict['nms_threshold'] = people_result.nms_threshold
+                        prediction_dict['detection_processing_time'] = people_result.processing_time_ms
+                        
+                        # Update bounding boxes with accurate detections
+                        if people_result.detections:
+                            prediction_dict['bounding_boxes'] = [
+                                [det.bbox[0], det.bbox[1], det.bbox[2], det.bbox[3]] 
+                                for det in people_result.detections
+                            ]
+                        
+                        # Recalculate crowd density and risk based on accurate count
+                        prediction_dict = self._recalculate_risk_with_accurate_count(
+                            prediction_dict, people_result.people_count, image_array.shape
+                        )
+                        
                     except Exception as e:
                         logger.error(f"AI prediction failed: {str(e)}")
                         prediction_dict = self._fallback_prediction(f"AI error: {str(e)}")
                 else:
-                    prediction_dict = self._fallback_prediction("Model not loaded")
+                    # Even in fallback mode, use improved people detection
+                    try:
+                        people_result = self.people_detector.detect_people(image_array, debug=False)
+                        prediction_dict = self._create_fallback_with_real_detection(people_result, image_array.shape)
+                    except Exception as e:
+                        logger.error(f"People detection failed: {str(e)}")
+                        prediction_dict = self._fallback_prediction("Model not loaded")
                 
                 # Update statistics
                 self._update_prediction_stats(start_time)
