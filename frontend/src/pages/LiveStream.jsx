@@ -33,11 +33,27 @@ export default function LiveStream() {
       setStreams([
         {
           id: 'demo-1',
-          stream_name: 'Demo Stream 1',
-          status: 'inactive',
+          stream_name: 'Main Entrance Camera',
+          status: 'active',
           last_active: new Date().toISOString(),
+          current_people_count: 23,
+          current_confidence: 0.87
+        },
+        {
+          id: 'demo-2',
+          stream_name: 'Event Hall Monitor',
+          status: 'inactive',
+          last_active: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
           current_people_count: 0,
           current_confidence: 0
+        },
+        {
+          id: 'demo-3',
+          stream_name: 'Emergency Exit View',
+          status: 'active',
+          last_active: new Date().toISOString(),
+          current_people_count: 5,
+          current_confidence: 0.92
         }
       ])
     }
@@ -147,6 +163,39 @@ export default function LiveStream() {
     setIsStreaming(false)
     setActiveStream(null)
     setAnalysis(null)
+    
+    // Reload streams to update status
+    await loadStreams()
+  }
+
+  const forceStopStream = async (stream) => {
+    try {
+      await streamsApi.stop(stream.id)
+      alert('Stream ended successfully!')
+      await loadStreams()
+    } catch (err) {
+      console.error('Failed to stop stream:', err)
+      const errorMessage = err?.response?.data?.error || 
+                          err?.response?.data?.message || 
+                          err?.message || 
+                          'Failed to end stream. Please try again.'
+      alert(errorMessage)
+    }
+  }
+
+  const deleteStream = async (stream) => {
+    if (!confirm(`Are you sure you want to delete "${stream.stream_name}"? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      // Note: Add delete endpoint to API if it doesn't exist
+      // For now, just show a message
+      alert('Stream deletion feature will be available soon. For now, inactive streams can be managed from the admin panel.')
+    } catch (err) {
+      console.error('Failed to delete stream:', err)
+      alert('Failed to delete stream. Please try again.')
+    }
   }
 
   const captureAndAnalyze = async (streamId) => {
@@ -180,12 +229,31 @@ export default function LiveStream() {
   }
 
   const getStatusBadge = (status) => {
-    const colors = {
-      active: 'bg-green-100 text-green-800',
-      inactive: 'bg-gray-100 text-gray-800',
-      error: 'bg-red-100 text-red-800'
+    const statusConfig = {
+      active: {
+        class: 'status-online',
+        icon: '🟢',
+        text: 'LIVE'
+      },
+      inactive: {
+        class: 'status-offline',
+        icon: '⚫',
+        text: 'OFFLINE'
+      },
+      error: {
+        class: 'status-processing',
+        icon: '⚠️',
+        text: 'ERROR'
+      }
     }
-    return `px-2 py-1 rounded-full text-xs font-medium ${colors[status] || colors.inactive}`
+    
+    const config = statusConfig[status] || statusConfig.inactive
+    return (
+      <span className={config.class}>
+        <span className="mr-1">{config.icon}</span>
+        {config.text}
+      </span>
+    )
   }
 
   return (
@@ -368,7 +436,7 @@ export default function LiveStream() {
                   <div>
                     <h3 className="font-medium">{stream.stream_name}</h3>
                     <div className="flex items-center gap-3 mt-1">
-                      <span className={getStatusBadge(stream.status)}>{stream.status}</span>
+                      {getStatusBadge(stream.status)}
                       <span className="text-sm text-gray-600">
                         Last active: {new Date(stream.last_active).toLocaleString()}
                       </span>
@@ -381,17 +449,40 @@ export default function LiveStream() {
                     )}
                   </div>
                   <div className="flex gap-2">
-                    {!isStreaming && stream.status !== 'active' && (
+                    {stream.status === 'active' ? (
+                      <button
+                        onClick={() => {
+                          if (activeStream?.id === stream.id) {
+                            stopStreaming()
+                          } else {
+                            // Force stop stream that's active but not locally streaming
+                            forceStopStream(stream)
+                          }
+                        }}
+                        className="btn btn-danger"
+                      >
+                        <span className="mr-2">⏹️</span>
+                        {activeStream?.id === stream.id ? 'Stop Stream' : 'End Stream'}
+                      </button>
+                    ) : (
                       <button
                         onClick={() => startStreaming(stream)}
                         className="btn btn-accent"
+                        disabled={isStreaming}
                       >
+                        <span className="mr-2">▶️</span>
                         Start Stream
                       </button>
                     )}
-                    {isStreaming && activeStream?.id === stream.id && (
-                      <button onClick={stopStreaming} className="btn btn-danger">
-                        Stop Stream
+                    
+                    {/* Always show delete option for inactive streams */}
+                    {stream.status !== 'active' && (
+                      <button
+                        onClick={() => deleteStream(stream)}
+                        className="btn btn-outline text-red-600 border-red-300 hover:bg-red-50"
+                      >
+                        <span className="mr-2">🗑️</span>
+                        Delete
                       </button>
                     )}
                   </div>
