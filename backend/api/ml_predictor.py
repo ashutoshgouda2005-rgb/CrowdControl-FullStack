@@ -36,7 +36,7 @@ except ImportError:
 
 from PIL import Image
 from io import BytesIO
-from base64 import b64decode
+import base64
 import numpy as np
 
 class CrowdPredictor:
@@ -102,46 +102,93 @@ class CrowdPredictor:
             return False
     
     def preprocess_image(self, image_data):
-        """Preprocess image for model prediction"""
+        """Preprocess image for model prediction with robust error handling"""
         try:
-            # Convert image data to numpy array
+            print(f"Preprocessing image data type: {type(image_data)}")
+            
+            # Handle different input types
             if isinstance(image_data, str):
-                # Base64 encoded image
-                image_data = base64.b64decode(image_data)
+                print("Processing base64 string...")
+                try:
+                    # Base64 encoded image
+                    image_data = base64.b64decode(image_data)
+                    print("Base64 decoded successfully")
+                except Exception as e:
+                    print(f"Base64 decode error: {e}")
+                    return None, None, None
             
             # Convert to PIL Image
             if isinstance(image_data, bytes):
-                image = Image.open(BytesIO(image_data))
-                image = np.array(image)
-            else:
+                print("Converting bytes to PIL Image...")
+                try:
+                    image = Image.open(BytesIO(image_data))
+                    # Convert to RGB if needed
+                    if image.mode in ('RGBA', 'P'):
+                        image = image.convert('RGB')
+                    image = np.array(image)
+                    print(f"PIL Image converted, shape: {image.shape}")
+                except Exception as e:
+                    print(f"PIL Image conversion error: {e}")
+                    return None, None, None
+            elif isinstance(image_data, np.ndarray):
+                print("Using numpy array directly...")
                 image = image_data
+            else:
+                print(f"Unsupported image data type: {type(image_data)}")
+                return None, None, None
+            
+            # Ensure image has valid shape
+            if len(image.shape) < 2:
+                print(f"Invalid image shape: {image.shape}")
+                return None, None, None
             
             # Convert to grayscale if needed
             if len(image.shape) == 3:
+                print("Converting to grayscale...")
                 if CV2_AVAILABLE:
-                    gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+                    # Handle different color formats
+                    if image.shape[2] == 3:
+                        gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+                    elif image.shape[2] == 4:
+                        gray = cv2.cvtColor(image, cv2.COLOR_RGBA2GRAY)
+                    else:
+                        gray = image[:,:,0]  # Take first channel
                 else:
                     # Fallback grayscale conversion
-                    gray = np.dot(image[...,:3], [0.2989, 0.5870, 0.1140])
+                    if image.shape[2] >= 3:
+                        gray = np.dot(image[...,:3], [0.2989, 0.5870, 0.1140])
+                    else:
+                        gray = image[:,:,0]
             else:
                 gray = image
             
+            print(f"Grayscale image shape: {gray.shape}")
+            
+            # Ensure grayscale is proper format
+            gray = gray.astype(np.uint8)
+            
             # Resize to 100x100
+            print("Resizing image...")
             if CV2_AVAILABLE:
                 resized = cv2.resize(gray, (100, 100))
             else:
                 # Fallback resize using PIL
-                from PIL import Image as PILImage
-                pil_img = PILImage.fromarray(gray.astype('uint8'))
+                pil_img = Image.fromarray(gray)
                 pil_img = pil_img.resize((100, 100))
                 resized = np.array(pil_img)
             
+            print(f"Resized image shape: {resized.shape}")
+            
+            # Flatten for model input
             img_flat = resized.flatten().astype('float32').reshape(1, -1)
+            print(f"Flattened image shape: {img_flat.shape}")
             
             return img_flat, gray, image
             
         except Exception as e:
             print(f"Error preprocessing image: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return None, None, None
     
     def detect_faces(self, gray_image):
@@ -184,11 +231,11 @@ class CrowdPredictor:
                 }
         
         try:
-            # Preprocess image
+            print("Starting image preprocessing...")
             img_flat, gray, original = self.preprocess_image(image_data)
             if img_flat is None:
-                # Fallback to basic analysis
-                return self._fallback_analysis()
+                print("Image preprocessing failed, using fallback analysis")
+                return self._fallback_analysis(error="Image preprocessing failed")
             
             # Get compressed representation from autoencoder
             compressed = self.sess.run(self.hid_layer3, feed_dict={self.X: img_flat})

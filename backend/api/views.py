@@ -271,16 +271,38 @@ def analyze_frame(request):
         except LiveStream.DoesNotExist:
             return Response({'error': 'Live stream not found'}, status=status.HTTP_404_NOT_FOUND)
         
-        # Analyze frame
+        # Analyze frame with enhanced error handling
         start_time = time.time()
-        predictor = get_predictor()
-        analysis = predictor.predict_crowd(frame_data)
-        processing_time = time.time() - start_time
-        
-        if 'error' in analysis:
-            return Response({
-                'error': analysis['error']
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        try:
+            predictor = get_predictor()
+            print(f"Analyzing frame for stream {stream_id}...")
+            analysis = predictor.predict_crowd(frame_data)
+            processing_time = time.time() - start_time
+            print(f"Analysis completed in {processing_time:.3f}s: {analysis}")
+            
+            # Handle analysis errors
+            if 'error' in analysis:
+                print(f"Analysis error: {analysis['error']}")
+                return Response({
+                    'error': analysis['error'],
+                    'fallback_mode': True
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
+        except Exception as e:
+            processing_time = time.time() - start_time
+            print(f"Frame analysis exception: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            
+            # Return fallback analysis instead of error
+            analysis = {
+                'crowd_detected': False,
+                'confidence_score': 0.5,
+                'people_count': 1,
+                'is_stampede_risk': False,
+                'fallback_mode': True,
+                'error': str(e)
+            }
         
         # Update stream status
         stream.current_crowd_status = analysis['crowd_detected']
@@ -514,6 +536,9 @@ def analyze_media_async(media_upload_id):
         media_upload.people_count = analysis.get('people_count', 0)
         media_upload.is_stampede_risk = analysis.get('is_stampede_risk', False)
         media_upload.analysis_completed_at = timezone.now()
+        
+        # Store the full analysis result as JSON
+        media_upload.analysis_result = analysis
         media_upload.save()
         
         print(f"Media upload {media_upload_id} analysis completed successfully")

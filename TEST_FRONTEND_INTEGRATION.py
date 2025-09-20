@@ -16,7 +16,7 @@ class FrontendIntegrationTester:
     
     def __init__(self):
         self.base_url = "http://127.0.0.1:8000"
-        self.frontend_url = "http://localhost:5174"  # Updated to actual running port
+        self.frontend_url = "http://localhost:5177"  # Updated to current running port
         self.access_token = None
         self.test_results = []
         
