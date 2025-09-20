@@ -186,6 +186,89 @@ body {
   @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
 }
 
+/* Mobile Optimizations */
+@media (max-width: 768px) {
+  .container-custom {
+    @apply px-3;
+  }
+  
+  .card {
+    @apply mx-2 rounded-xl;
+  }
+  
+  .btn {
+    @apply px-4 py-2 text-sm;
+  }
+  
+  /* Improve touch targets */
+  button, input, select, textarea {
+    min-height: 44px;
+  }
+  
+  /* Better mobile navigation */
+  .nav-glass {
+    @apply px-3;
+  }
+  
+  /* Mobile-friendly forms */
+  .form-input {
+    @apply text-base; /* Prevents zoom on iOS */
+  }
+  
+  /* Responsive text sizes */
+  h1 {
+    @apply text-2xl;
+  }
+  
+  h2 {
+    @apply text-xl;
+  }
+  
+  /* Mobile video player */
+  video {
+    @apply w-full h-auto max-h-64;
+  }
+}
+
+/* Tablet Optimizations */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .container-custom {
+    @apply px-6;
+  }
+  
+  .card {
+    @apply mx-4;
+  }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+  .btn:hover {
+    transform: none;
+  }
+  
+  .card:hover {
+    transform: none;
+  }
+  
+  /* Larger touch targets */
+  .btn {
+    @apply py-3 px-6;
+  }
+}
+
+/* Landscape mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+  .min-h-screen {
+    min-height: 100vh;
+  }
+  
+  /* Adjust hero section for landscape */
+  .hero-gradient {
+    @apply py-12;
+  }
+}
+
 /* Dark mode support */
 @media (prefers-color-scheme: dark) {
   body {
@@ -198,5 +281,17 @@ body {
   
   .form-input {
     @apply bg-gray-800/80 border-gray-600 text-white;
+  }
+}
+
+/* PWA and mobile app styles */
+@media (display-mode: standalone) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .nav-glass {
+    padding-top: calc(env(safe-area-inset-top) + 1rem);
   }
 }
