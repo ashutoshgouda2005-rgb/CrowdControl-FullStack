@@ -30,6 +30,7 @@ class MediaUpload(models.Model):
     people_count = models.IntegerField(null=True, blank=True)
     is_stampede_risk = models.BooleanField(null=True, blank=True)
     analysis_completed_at = models.DateTimeField(null=True, blank=True)
+    analysis_result = models.JSONField(null=True, blank=True)
     
     # Metadata
     description = models.TextField(blank=True)

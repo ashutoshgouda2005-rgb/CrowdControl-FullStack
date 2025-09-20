@@ -53,6 +53,7 @@ class MediaUploadSerializer(serializers.Serializer):
     people_count = serializers.IntegerField(read_only=True)
     is_stampede_risk = serializers.BooleanField(read_only=True)
     analysis_completed_at = serializers.DateTimeField(read_only=True)
+    analysis_result = serializers.JSONField(read_only=True)
     
     # Metadata
     description = serializers.CharField(required=False, allow_blank=True)
