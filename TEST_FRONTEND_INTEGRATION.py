@@ -16,7 +16,7 @@ class FrontendIntegrationTester:
     
     def __init__(self):
         self.base_url = "http://127.0.0.1:8000"
-        self.frontend_url = "http://localhost:5173"
+        self.frontend_url = "http://localhost:5174"  # Updated to actual running port
         self.access_token = None
         self.test_results = []
         
@@ -121,11 +121,13 @@ class FrontendIntegrationTester:
             # Test file upload
             with open(test_image_path, 'rb') as f:
                 files = {'file': ('test_image.jpg', f, 'image/jpeg')}
+                data = {'media_type': 'image', 'description': 'Integration test image'}
                 headers = {'Authorization': f'Bearer {self.access_token}'}
                 
                 response = requests.post(
                     f"{self.base_url}/api/media/upload/",
                     files=files,
+                    data=data,
                     headers=headers
                 )
             
@@ -199,7 +201,8 @@ class FrontendIntegrationTester:
         
         try:
             stream_data = {
-                "name": "Test Stream",
+                "stream_name": "Test Stream",
+                "name": "Test Stream", 
                 "description": "Integration test stream",
                 "stream_type": "webcam"
             }
