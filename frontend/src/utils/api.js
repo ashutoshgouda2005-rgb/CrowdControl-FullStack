@@ -1,9 +1,51 @@
 // API configuration and functions for CrowdControl
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
-const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://127.0.0.1:8000'
+// Auto-detect API URL based on current host for universal device access
+const getApiBaseUrl = () => {
+  // If environment variable is set, use it
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL
+  }
+  
+  // Auto-detect based on current location
+  const protocol = window.location.protocol
+  const hostname = window.location.hostname
+  
+  // For localhost/127.0.0.1, use localhost
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return `${protocol}//127.0.0.1:8000`
+  }
+  
+  // For any other IP (mobile devices), use the same IP
+  return `${protocol}//${hostname}:8000`
+}
+
+const getWsBaseUrl = () => {
+  // If environment variable is set, use it
+  if (import.meta.env.VITE_WS_URL) {
+    return import.meta.env.VITE_WS_URL
+  }
+  
+  // Auto-detect WebSocket URL
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const hostname = window.location.hostname
+  
+  // For localhost/127.0.0.1, use localhost
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return `${protocol}//127.0.0.1:8000`
+  }
+  
+  // For any other IP (mobile devices), use the same IP
+  return `${protocol}//${hostname}:8000`
+}
+
+const API_BASE_URL = getApiBaseUrl()
+const WS_BASE_URL = getWsBaseUrl()
 
 // Helper function to get WebSocket base URL
 export const getWsBase = () => WS_BASE_URL
+
+// Helper function to get API base URL (useful for debugging)
+export const getApiBase = () => API_BASE_URL
 
 // Helper function to get auth headers
 const getAuthHeaders = () => {

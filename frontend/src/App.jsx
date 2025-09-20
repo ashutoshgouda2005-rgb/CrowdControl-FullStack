@@ -7,6 +7,7 @@ import Uploads from './pages/Uploads'
 import LiveStream from './pages/LiveStream'
 import Test from './pages/Test'
 import NavBar from './components/NavBar'
+import DeviceInfo from './components/DeviceInfo'
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('access')
@@ -46,6 +47,9 @@ export default function App() {
         } />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      
+      {/* Device Info Component - Shows connection status */}
+      <DeviceInfo />
     </div>
   )
 }
