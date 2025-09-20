@@ -10,6 +10,7 @@ import NavBar from './components/NavBar'
 import DeviceInfo from './components/DeviceInfo'
 
 function PrivateRoute({ children }) {
+  // Only show page if user is logged in, otherwise redirect to login
   const token = localStorage.getItem('access')
   return token ? children : <Navigate to="/login" replace />
 }
@@ -48,7 +49,7 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       
-      {/* Device Info Component - Shows connection status */}
+      {/* Shows connection status in bottom-right corner */}
       <DeviceInfo />
     </div>
   )

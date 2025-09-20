@@ -30,18 +30,16 @@ export default function NavBar() {
           <div className="flex items-center gap-8">
             <Link to="/" className="flex items-center gap-3 group">
               <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
-                <span className="text-white font-bold text-lg">🚨</span>
+                <span className="text-white font-bold text-lg">CC</span>
               </div>
               <span className="text-2xl font-bold gradient-text">CrowdControl</span>
             </Link>
             {loggedIn && (
               <div className="flex gap-1">
                 <Link className={linkClass('/uploads')} to="/uploads">
-                  <span className="mr-2">📤</span>
                   Uploads
                 </Link>
                 <Link className={linkClass('/live')} to="/live">
-                  <span className="mr-2">📹</span>
                   Live Stream
                 </Link>
               </div>
@@ -63,18 +61,15 @@ export default function NavBar() {
                   </div>
                 </div>
                 <button className="btn btn-danger" onClick={logout}>
-                  <span className="mr-2">🚪</span>
                   Logout
                 </button>
               </>
             ) : (
               <div className="flex gap-3">
                 <Link className="btn btn-outline" to="/register">
-                  <span className="mr-2">✨</span>
                   Sign Up
                 </Link>
                 <Link className="btn btn-primary" to="/login">
-                  <span className="mr-2">🔐</span>
                   Login
                 </Link>
               </div>

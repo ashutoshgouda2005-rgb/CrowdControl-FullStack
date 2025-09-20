@@ -2,6 +2,19 @@
 title CrowdControl - Universal Device Access
 color 0A
 
+REM Check if system is ready
+if not exist "venv\Scripts\activate.bat" (
+    echo ❌ Virtual environment not found. Please run TEST_SYSTEM.bat first.
+    pause
+    exit /b 1
+)
+
+if not exist "frontend\node_modules" (
+    echo ❌ Frontend dependencies not found. Please run TEST_SYSTEM.bat first.
+    pause
+    exit /b 1
+)
+
 echo.
 echo  ██████╗██████╗  ██████╗ ██╗    ██╗██████╗  ██████╗ ██████╗ ███╗   ██╗████████╗██████╗  ██████╗ ██╗     
 echo ██╔════╝██╔══██╗██╔═══██╗██║    ██║██╔══██╗██╔════╝██╔═══██╗████╗  ██║╚══██╔══╝██╔══██╗██╔═══██╗██║     

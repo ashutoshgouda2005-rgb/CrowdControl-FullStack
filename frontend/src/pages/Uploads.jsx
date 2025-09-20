@@ -12,10 +12,13 @@ export default function Uploads() {
   const loadUploads = async () => {
     setLoading(true)
     try {
-      const { data } = await mediaApi.list()
-      setUploads(data.results || [])
+      const response = await mediaApi.list()
+      // Handle different response structures
+      setUploads(response.results || response.data?.results || response || [])
     } catch (err) {
       console.error('Failed to load uploads:', err)
+      // Show user-friendly error message
+      alert('Failed to load uploads. Please check your connection and try again.')
     } finally {
       setLoading(false)
     }
@@ -27,29 +30,52 @@ export default function Uploads() {
 
   const handleUpload = async (e) => {
     e.preventDefault()
-    if (!selectedFile) return
+    if (!selectedFile) {
+      alert('Please select a file to upload.')
+      return
+    }
+
+    // Check file size (limit to 50MB)
+    if (selectedFile.size > 50 * 1024 * 1024) {
+      alert('File size too large. Please select a file smaller than 50MB.')
+      return
+    }
 
     setUploading(true)
     try {
       const mediaType = selectedFile.type.startsWith('image/') ? 'image' : 'video'
-      await mediaApi.upload({
+      const uploadData = {
         file: selectedFile,
         media_type: mediaType,
-        description,
-        location
-      })
+        description: description.trim(),
+        location: location.trim()
+      }
       
+      const response = await mediaApi.upload(uploadData)
+      console.log('Upload successful:', response)
+      
+      // Clear form
       setSelectedFile(null)
       setDescription('')
       setLocation('')
-      loadUploads()
+      
+      // Refresh uploads list
+      await loadUploads()
+      
+      alert('File uploaded successfully! AI analysis will begin shortly.')
     } catch (err) {
       console.error('Upload failed:', err)
-      const errorMessage = err?.response?.data?.error || 
-                          err?.response?.data?.message || 
-                          err?.message || 
-                          'Upload failed. Please try again.'
-      alert(errorMessage)
+      let errorMessage = 'Upload failed. Please try again.'
+      
+      if (err?.response?.data?.error) {
+        errorMessage = err.response.data.error
+      } else if (err?.response?.data?.message) {
+        errorMessage = err.response.data.message
+      } else if (err?.message) {
+        errorMessage = err.message
+      }
+      
+      alert(`Upload Error: ${errorMessage}`)
     } finally {
       setUploading(false)
     }

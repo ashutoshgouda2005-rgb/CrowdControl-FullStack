@@ -1,53 +1,53 @@
-// API configuration and functions for CrowdControl
-// Auto-detect API URL based on current host for universal device access
+// API setup for CrowdControl
+// Automatically figures out the right server URL depending on where you're accessing from
 const getApiBaseUrl = () => {
-  // If environment variable is set, use it
+  // Use custom URL if set in environment
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL
   }
   
-  // Auto-detect based on current location
+  // Otherwise, figure it out from where we're running
   const protocol = window.location.protocol
   const hostname = window.location.hostname
   
-  // For localhost/127.0.0.1, use localhost
+  // If running locally, use localhost
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     return `${protocol}//127.0.0.1:8000`
   }
   
-  // For any other IP (mobile devices), use the same IP
+  // If accessing from phone/tablet, use the same IP
   return `${protocol}//${hostname}:8000`
 }
 
 const getWsBaseUrl = () => {
-  // If environment variable is set, use it
+  // Use custom WebSocket URL if set
   if (import.meta.env.VITE_WS_URL) {
     return import.meta.env.VITE_WS_URL
   }
   
-  // Auto-detect WebSocket URL
+  // Build WebSocket URL automatically
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   const hostname = window.location.hostname
   
-  // For localhost/127.0.0.1, use localhost
+  // Local development
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     return `${protocol}//127.0.0.1:8000`
   }
   
-  // For any other IP (mobile devices), use the same IP
+  // Mobile or remote access
   return `${protocol}//${hostname}:8000`
 }
 
 const API_BASE_URL = getApiBaseUrl()
 const WS_BASE_URL = getWsBaseUrl()
 
-// Helper function to get WebSocket base URL
+// Get WebSocket URL for real-time features
 export const getWsBase = () => WS_BASE_URL
 
-// Helper function to get API base URL (useful for debugging)
+// Get API URL (mainly for debugging)
 export const getApiBase = () => API_BASE_URL
 
-// Helper function to get auth headers
+// Add auth token to requests if user is logged in
 const getAuthHeaders = () => {
   const token = localStorage.getItem('access')
   return {
@@ -56,7 +56,7 @@ const getAuthHeaders = () => {
   }
 }
 
-// Helper function to handle API responses
+// Handle API responses and errors nicely
 const handleResponse = async (response) => {
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Network error' }))
@@ -65,9 +65,9 @@ const handleResponse = async (response) => {
   return response.json()
 }
 
-// Authentication API
+// User authentication functions
 export const authApi = {
-  // User registration
+  // Sign up new users
   register: async (userData) => {
     const response = await fetch(`${API_BASE_URL}/api/auth/register/`, {
       method: 'POST',
@@ -77,7 +77,7 @@ export const authApi = {
     return handleResponse(response)
   },
 
-  // User login
+  // Log in existing users
   login: async (username, password) => {
     const response = await fetch(`${API_BASE_URL}/api/auth/login/`, {
       method: 'POST',
@@ -86,7 +86,7 @@ export const authApi = {
     })
     const data = await handleResponse(response)
     
-    // Store tokens in localStorage
+    // Save login tokens for future requests
     if (data.access) {
       localStorage.setItem('access', data.access)
       localStorage.setItem('refresh', data.refresh)
@@ -96,7 +96,7 @@ export const authApi = {
     return data
   },
 
-  // Get user profile
+  // Get current user info
   profile: async () => {
     const response = await fetch(`${API_BASE_URL}/api/auth/profile/`, {
       method: 'GET',
@@ -105,44 +105,54 @@ export const authApi = {
     return handleResponse(response)
   },
 
-  // Logout
+  // Log out and clear saved data
   logout: () => {
     localStorage.removeItem('access')
     localStorage.removeItem('refresh')
     localStorage.removeItem('user')
   },
 
-  // Check if user is authenticated
+  // Check if someone is logged in
   isAuthenticated: () => {
     return !!localStorage.getItem('access')
   },
 
-  // Get current user from localStorage
+  // Get saved user info
   getCurrentUser: () => {
     const user = localStorage.getItem('user')
     return user ? JSON.parse(user) : null
   }
 }
 
-// Media API
+// File upload and management
 export const mediaApi = {
-  // Upload media file
-  upload: async (file, onProgress) => {
+  // Upload photos/videos for AI analysis
+  upload: async (uploadData, onProgress) => {
     const formData = new FormData()
-    formData.append('file', file)
+    
+    // Handle both file object and upload data object
+    if (uploadData instanceof File) {
+      formData.append('file', uploadData)
+    } else {
+      formData.append('file', uploadData.file)
+      if (uploadData.description) formData.append('description', uploadData.description)
+      if (uploadData.location) formData.append('location', uploadData.location)
+      if (uploadData.media_type) formData.append('media_type', uploadData.media_type)
+    }
     
     const token = localStorage.getItem('access')
     const response = await fetch(`${API_BASE_URL}/api/media/upload/`, {
       method: 'POST',
       headers: {
         ...(token && { 'Authorization': `Bearer ${token}` })
+        // Don't set Content-Type for FormData - browser will set it with boundary
       },
       body: formData
     })
     return handleResponse(response)
   },
 
-  // Get media uploads list
+  // Get all uploaded files
   list: async () => {
     const response = await fetch(`${API_BASE_URL}/api/media/list/`, {
       method: 'GET',
@@ -151,7 +161,7 @@ export const mediaApi = {
     return handleResponse(response)
   },
 
-  // Get specific media upload
+  // Get details for one specific upload
   get: async (uploadId) => {
     const response = await fetch(`${API_BASE_URL}/api/media/${uploadId}/`, {
       method: 'GET',
@@ -161,9 +171,9 @@ export const mediaApi = {
   }
 }
 
-// Analysis API
+// AI crowd analysis functions
 export const analysisApi = {
-  // Analyze frame
+  // Send a video frame to AI for analysis
   analyzeFrame: async (frameData) => {
     const response = await fetch(`${API_BASE_URL}/api/analysis/frame/`, {
       method: 'POST',
@@ -173,7 +183,7 @@ export const analysisApi = {
     return handleResponse(response)
   },
 
-  // Get analysis results
+  // Get past analysis results
   getResults: async () => {
     const response = await fetch(`${API_BASE_URL}/api/analysis/results/`, {
       method: 'GET',
