@@ -24,44 +24,87 @@ export default function Login() {
   }
 
   return (
-    <div className="max-w-md mx-auto mt-12 card">
-      <div className="card-body">
-        <h1 className="text-2xl font-semibold mb-2">Welcome back</h1>
-        <p className="text-gray-600 mb-6">Sign in to manage uploads and live streams</p>
-        {error && <div className="p-3 rounded bg-red-50 text-red-700 mb-4">{error}</div>}
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm text-gray-700 mb-1">Username</label>
-            <input 
-              value={username} 
-              onChange={(e)=>setUsername(e.target.value)} 
-              className="w-full border rounded px-3 py-2" 
-              placeholder="Enter username" 
-              required
-              minLength={3}
-              disabled={loading}
-            />
+    <div className="max-w-md mx-auto animate-slide-in">
+      <div className="card">
+        <div className="card-body">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl">🔐</span>
+            </div>
+            <h1 className="text-3xl font-bold gradient-text mb-2">Welcome Back</h1>
+            <p className="text-gray-600">Sign in to access your CrowdControl dashboard</p>
           </div>
-          <div>
-            <label className="block text-sm text-gray-700 mb-1">Password</label>
-            <input 
-              type="password" 
-              value={password} 
-              onChange={(e)=>setPassword(e.target.value)} 
-              className="w-full border rounded px-3 py-2" 
-              placeholder="Enter password" 
-              required
-              minLength={6}
+          
+          {error && (
+            <div className="alert alert-error mb-6">
+              <span className="mr-2">⚠️</span>
+              {error}
+            </div>
+          )}
+          
+          <form onSubmit={onSubmit} className="space-y-6">
+            <div className="form-group">
+              <label className="form-label">
+                <span className="mr-2">👤</span>
+                Username
+              </label>
+              <input 
+                value={username} 
+                onChange={(e)=>setUsername(e.target.value)} 
+                className="form-input" 
+                placeholder="Enter your username" 
+                required
+                minLength={3}
+                disabled={loading}
+              />
+            </div>
+            
+            <div className="form-group">
+              <label className="form-label">
+                <span className="mr-2">🔒</span>
+                Password
+              </label>
+              <input 
+                type="password" 
+                value={password} 
+                onChange={(e)=>setPassword(e.target.value)} 
+                className="form-input" 
+                placeholder="Enter your password" 
+                required
+                minLength={6}
+                disabled={loading}
+              />
+            </div>
+            
+            <button 
+              type="submit" 
+              className="btn btn-primary w-full" 
               disabled={loading}
-            />
+            >
+              {loading ? (
+                <>
+                  <div className="spinner mr-2"></div>
+                  Signing in...
+                </>
+              ) : (
+                <>
+                  <span className="mr-2">🚀</span>
+                  Sign In
+                </>
+              )}
+            </button>
+          </form>
+          
+          <div className="text-center mt-8 pt-6 border-t border-gray-100">
+            <p className="text-gray-600 mb-4">Don't have an account?</p>
+            <Link 
+              to="/register" 
+              className="btn btn-outline w-full"
+            >
+              <span className="mr-2">✨</span>
+              Create Account
+            </Link>
           </div>
-          <button className="btn btn-primary w-full h-11" disabled={loading}>{loading ? 'Signing in...' : 'Sign In'}</button>
-        </form>
-        <div className="text-sm text-gray-600 mt-4 text-center">
-          Don't have an account?{' '}
-          <Link to="/register" className="text-blue-600 hover:text-blue-800 font-medium">
-            Create one here
-          </Link>
         </div>
       </div>
     </div>

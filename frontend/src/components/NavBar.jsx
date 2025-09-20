@@ -21,31 +21,62 @@ export default function NavBar() {
     navigate('/login')
   }
 
-  const linkClass = (path) => `px-3 py-2 rounded-md ${location.pathname === path ? 'bg-sky-100 text-sky-700' : 'text-gray-700 hover:text-sky-700'}`
+  const linkClass = (path) => `nav-link ${location.pathname === path ? 'nav-link-active' : 'text-gray-700 hover:text-blue-600'}`
 
   return (
-    <nav className="bg-white border-b border-gray-200">
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="flex h-14 items-center justify-between">
-          <div className="flex items-center gap-6">
-            <Link to="/" className="text-xl font-semibold text-sky-600">CrowdControl</Link>
+    <nav className="nav-glass sticky top-0 z-50">
+      <div className="container-custom">
+        <div className="flex h-16 items-center justify-between">
+          <div className="flex items-center gap-8">
+            <Link to="/" className="flex items-center gap-3 group">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
+                <span className="text-white font-bold text-lg">🚨</span>
+              </div>
+              <span className="text-2xl font-bold gradient-text">CrowdControl</span>
+            </Link>
             {loggedIn && (
-              <div className="flex gap-2">
-                <Link className={linkClass('/uploads')} to="/uploads">Uploads</Link>
-                <Link className={linkClass('/live')} to="/live">Live Stream</Link>
+              <div className="flex gap-1">
+                <Link className={linkClass('/uploads')} to="/uploads">
+                  <span className="mr-2">📤</span>
+                  Uploads
+                </Link>
+                <Link className={linkClass('/live')} to="/live">
+                  <span className="mr-2">📹</span>
+                  Live Stream
+                </Link>
               </div>
             )}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             {loggedIn ? (
               <>
-                <span className="text-sm text-gray-600">{user?.username}</span>
-                <button className="btn btn-danger h-9" onClick={logout}>Logout</button>
+                <div className="flex items-center gap-3 px-4 py-2 bg-white/60 rounded-xl backdrop-blur-sm">
+                  <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-sm font-semibold">
+                      {user?.username?.charAt(0)?.toUpperCase() || 'U'}
+                    </span>
+                  </div>
+                  <span className="text-sm font-medium text-gray-700">{user?.username}</span>
+                  <div className="status-online">
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full mr-1"></div>
+                    Online
+                  </div>
+                </div>
+                <button className="btn btn-danger" onClick={logout}>
+                  <span className="mr-2">🚪</span>
+                  Logout
+                </button>
               </>
             ) : (
-              <div className="flex gap-2">
-                <Link className="btn btn-outline h-9" to="/register">Sign Up</Link>
-                <Link className="btn btn-primary h-9" to="/login">Login</Link>
+              <div className="flex gap-3">
+                <Link className="btn btn-outline" to="/register">
+                  <span className="mr-2">✨</span>
+                  Sign Up
+                </Link>
+                <Link className="btn btn-primary" to="/login">
+                  <span className="mr-2">🔐</span>
+                  Login
+                </Link>
               </div>
             )}
           </div>

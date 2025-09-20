@@ -64,22 +64,30 @@ export default function Register() {
   }
 
   return (
-    <div className="max-w-md mx-auto mt-8 card">
-      <div className="card-body">
-        <h1 className="text-2xl font-semibold mb-2">Create Account</h1>
-        <p className="text-gray-600 mb-6">Join CrowdControl to access AI-powered crowd analysis</p>
-        
-        {error && (
-          <div className="p-3 rounded bg-red-50 text-red-700 mb-4 text-sm">
-            {error}
+    <div className="max-w-md mx-auto animate-slide-in">
+      <div className="card">
+        <div className="card-body">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl">✨</span>
+            </div>
+            <h1 className="text-3xl font-bold gradient-text mb-2">Join CrowdControl</h1>
+            <p className="text-gray-600">Create your account to access AI-powered crowd analysis</p>
           </div>
-        )}
         
-        {success && (
-          <div className="p-3 rounded bg-green-50 text-green-700 mb-4 text-sm">
-            {success}
-          </div>
-        )}
+          {error && (
+            <div className="alert alert-error mb-6">
+              <span className="mr-2">⚠️</span>
+              {error}
+            </div>
+          )}
+          
+          {success && (
+            <div className="alert alert-success mb-6">
+              <span className="mr-2">✅</span>
+              {success}
+            </div>
+          )}
         
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">

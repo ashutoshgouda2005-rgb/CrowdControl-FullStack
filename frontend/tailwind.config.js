@@ -10,6 +10,10 @@ export default {
         primary: '#0ea5e9',
         accent: '#22c55e',
         danger: '#ef4444'
+      },
+      fontFamily: {
+        'inter': ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        'mono': ['JetBrains Mono', 'Fira Code', 'Monaco', 'Consolas', 'monospace']
       }
     },
   },

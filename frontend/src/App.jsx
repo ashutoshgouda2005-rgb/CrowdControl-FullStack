@@ -1,5 +1,6 @@
 import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
+import Home from './pages/Home'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Uploads from './pages/Uploads'
@@ -15,15 +16,34 @@ export default function App() {
   return (
     <div className="min-h-screen">
       <NavBar />
-      <div className="max-w-6xl mx-auto p-4">
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/uploads" element={<PrivateRoute><Uploads /></PrivateRoute>} />
-          <Route path="/live" element={<PrivateRoute><LiveStream /></PrivateRoute>} />
-          <Route path="*" element={<Navigate to="/uploads" replace />} />
-        </Routes>
-      </div>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={
+          <div className="container-custom py-8">
+            <Login />
+          </div>
+        } />
+        <Route path="/register" element={
+          <div className="container-custom py-8">
+            <Register />
+          </div>
+        } />
+        <Route path="/uploads" element={
+          <PrivateRoute>
+            <div className="container-custom py-8">
+              <Uploads />
+            </div>
+          </PrivateRoute>
+        } />
+        <Route path="/live" element={
+          <PrivateRoute>
+            <div className="container-custom py-8">
+              <LiveStream />
+            </div>
+          </PrivateRoute>
+        } />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </div>
   )
 }
