@@ -3,7 +3,12 @@
 const getApiBaseUrl = () => {
   // Use custom URL if set in environment
   if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL
+    let v = String(import.meta.env.VITE_API_URL).trim().replace(/\/$/, '')
+    // If provided URL already contains '/api' at the end, strip it so callers can append '/api/...'
+    if (v.toLowerCase().endsWith('/api')) {
+      v = v.slice(0, -4)
+    }
+    return v
   }
   
   // Otherwise, figure it out from where we're running
@@ -22,7 +27,12 @@ const getApiBaseUrl = () => {
 const getWsBaseUrl = () => {
   // Use custom WebSocket URL if set
   if (import.meta.env.VITE_WS_URL) {
-    return import.meta.env.VITE_WS_URL
+    let v = String(import.meta.env.VITE_WS_URL).trim().replace(/\/$/, '')
+    // Normalize if '/ws' suffix is included
+    if (v.toLowerCase().endsWith('/ws')) {
+      v = v.slice(0, -3)
+    }
+    return v
   }
   
   // Build WebSocket URL automatically
