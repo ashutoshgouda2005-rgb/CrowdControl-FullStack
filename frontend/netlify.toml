@@ -1,0 +1,14 @@
+[build]
+command = "npm run build"
+publish = "dist"
+
+[dev]
+framework = "vite"
+port = 5176
+
+[[headers]]
+for = "/api/*"
+  [headers.values]
+  Access-Control-Allow-Origin = "*"
+  Access-Control-Allow-Methods = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+  Access-Control-Allow-Headers = "Content-Type, Authorization"

@@ -8,6 +8,7 @@ export default function MobileDetection() {
   const [emergencyContacts, setEmergencyContacts] = useState([])
   const [locationEnabled, setLocationEnabled] = useState(false)
   const [currentLocation, setCurrentLocation] = useState(null)
+  const [streamId, setStreamId] = useState(null)
   
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
@@ -51,6 +52,30 @@ export default function MobileDetection() {
 
   const startDetection = async () => {
     try {
+      // Ensure user is authenticated
+      const token = localStorage.getItem('access')
+      if (!token) {
+        alert('Please login to start detection.')
+        return
+      }
+
+      // Create a live stream first so backend can associate frame analyses
+      try {
+        const stream = await streamsApi.create({
+          stream_name: 'Mobile Detection',
+          name: 'Mobile Detection',
+          description: 'Mobile crowd detection stream',
+          stream_type: 'webcam'
+        })
+        if (stream && stream.id) {
+          setStreamId(stream.id)
+        }
+      } catch (e) {
+        console.error('Failed to create live stream:', e)
+        alert('Failed to create live stream. Please try again after re-login.')
+        return
+      }
+
       // Request camera access with mobile-optimized settings
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -92,6 +117,12 @@ export default function MobileDetection() {
       clearInterval(intervalRef.current)
       intervalRef.current = null
     }
+
+    // Stop backend stream if it was created
+    if (streamId) {
+      streamsApi.stop(streamId).catch(e => console.warn('Failed to stop stream:', e))
+      setStreamId(null)
+    }
     
     setIsDetecting(false)
     setCurrentAlert(null)
@@ -99,6 +130,10 @@ export default function MobileDetection() {
 
   const analyzeFrame = async () => {
     if (!videoRef.current || !canvasRef.current) return
+    if (!streamId) {
+      console.warn('Stream not initialized yet; skipping frame analysis.')
+      return
+    }
 
     try {
       const video = videoRef.current
@@ -115,8 +150,9 @@ export default function MobileDetection() {
       // Convert to base64 for analysis
       const frameData = canvas.toDataURL('image/jpeg', 0.7).split(',')[1]
 
-      // Send for analysis using mobile-optimized endpoint
-      const response = await analysisApi.analyzeFrame({
+      // Send for analysis including stream_id as required by backend
+      const response = await streamsApi.analyzeFrame({
+        stream_id: streamId,
         frame_data: frameData,
         mobile_mode: true,
         battery_optimized: batteryOptimized,

@@ -175,10 +175,13 @@ export const mediaApi = {
 export const analysisApi = {
   // Send a video frame to AI for analysis
   analyzeFrame: async (frameData) => {
+    const payload = (frameData && typeof frameData === 'object' && (frameData.frame_data || frameData.stream_id))
+      ? frameData
+      : { frame_data: frameData }
     const response = await fetch(`${API_BASE_URL}/api/analysis/frame/`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ frame_data: frameData })
+      body: JSON.stringify(payload)
     })
     return handleResponse(response)
   },

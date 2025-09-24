@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 from pathlib import Path
+from django.conf import settings
 
 # Add AI model directory to path
 AI_MODEL_DIR = Path(__file__).parent.parent.parent / 'ai_model'
@@ -313,17 +314,19 @@ class CrowdPredictor:
     def predict_from_file(self, file_path):
         """Predict crowd status from image file"""
         try:
-            image = cv2.imread(file_path)
-            if image is None:
-                return {
-                    'error': 'Could not load image file',
-                    'crowd_detected': False,
-                    'confidence_score': 0.0,
-                    'people_count': 0,
-                    'is_stampede_risk': False
-                }
+            # Try OpenCV first if available
+            if CV2_AVAILABLE:
+                image = cv2.imread(file_path)
+                if image is not None:
+                    return self.predict_crowd(image)
             
-            return self.predict_crowd(image)
+            # Fallback to PIL if OpenCV unavailable or failed
+            with Image.open(file_path) as pil_img:
+                if pil_img.mode in ('RGBA', 'P'):
+                    pil_img = pil_img.convert('RGB')
+                import numpy as np
+                image = np.array(pil_img)
+                return self.predict_crowd(image)
             
         except Exception as e:
             print(f"Error predicting from file: {str(e)}")

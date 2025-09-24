@@ -44,7 +44,18 @@ const PhotoUpload = () => {
   }
 
   const handleFiles = (newFiles) => {
-    const imageFiles = newFiles.filter(file => file.type.startsWith('image/'))
+    const maxSize = 100 * 1024 * 1024; // 100MB
+    const imageFiles = newFiles.filter(file => {
+      if (!file.type.startsWith('image/')) {
+        alert(`${file.name} is not an image file`);
+        return false;
+      }
+      if (file.size > maxSize) {
+        alert(`${file.name} is too large. Maximum size is 100MB`);
+        return false;
+      }
+      return true;
+    });
     setFiles(prev => [...prev, ...imageFiles.slice(0, 5 - prev.length)])
   }
 
@@ -200,7 +211,7 @@ const PhotoUpload = () => {
                 or click to browse files
               </p>
               <p className="text-sm text-gray-500">
-                Supports JPG, PNG, WebP up to 10MB each (max 5 files)
+                Supports JPG, PNG, WebP up to 100MB each (max 5 files)
               </p>
             </div>
             

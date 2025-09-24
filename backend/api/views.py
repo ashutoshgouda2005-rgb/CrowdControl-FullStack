@@ -7,10 +7,12 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Q, Avg
+from django.db import models
 import json
 import base64
 import time
+import traceback
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
@@ -19,7 +21,7 @@ from .serializers import (
     UserSerializer, UserRegistrationSerializer, MediaUploadSerializer,
     LiveStreamSerializer, AnalysisResultSerializer, AlertSerializer
 )
-from .ml_predictor import get_predictor
+from .ai_predictor_fixed import get_predictor
 
 
 @api_view(['GET'])
@@ -115,19 +117,123 @@ def profile(request):
 @permission_classes([IsAuthenticated])
 def upload_media(request):
     """Upload photo or video for analysis"""
-    serializer = MediaUploadSerializer(data=request.data, context={'request': request})
-    if serializer.is_valid():
-        media_upload = serializer.save()
+    try:
+        # Log the incoming request for debugging
+        print(f"Upload request from user: {request.user.username}")
+        print(f"Files: {list(request.FILES.keys())}")
+        print(f"Data: {dict(request.data)}")
         
-        # Run AI analysis in the background so user doesn't have to wait
-        import threading
-        analysis_thread = threading.Thread(target=analyze_media_async, args=(media_upload.id,))
-        analysis_thread.daemon = True
-        analysis_thread.start()
+        # Validate file presence
+        if 'file' not in request.FILES:
+            return Response({
+                'error': 'No file provided',
+                'detail': 'Please select a file to upload'
+            }, status=status.HTTP_400_BAD_REQUEST)
         
-        return Response(MediaUploadSerializer(media_upload).data, status=status.HTTP_201_CREATED)
-    
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        file_obj = request.FILES['file']
+        
+        # Validate file size (100MB limit)
+        max_size = 100 * 1024 * 1024  # 100MB
+        if file_obj.size > max_size:
+            return Response({
+                'error': 'File too large',
+                'detail': f'File size ({file_obj.size / (1024*1024):.1f}MB) exceeds the 100MB limit'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Validate file type
+        allowed_types = [
+            'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif',
+            'video/mp4', 'video/avi', 'video/mov', 'video/wmv', 'video/webm'
+        ]
+        if file_obj.content_type not in allowed_types:
+            return Response({
+                'error': 'Invalid file type',
+                'detail': f'File type {file_obj.content_type} is not supported. Allowed types: images (JPEG, PNG, WebP, GIF) and videos (MP4, AVI, MOV, WMV, WebM)'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        serializer = MediaUploadSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            media_upload = serializer.save()
+            
+            # Run AI analysis in the background so user doesn't have to wait
+            import threading
+            analysis_thread = threading.Thread(target=analyze_media_async, args=(media_upload.id,))
+            analysis_thread.daemon = True
+            analysis_thread.start()
+            
+            return Response(MediaUploadSerializer(media_upload).data, status=status.HTTP_201_CREATED)
+        else:
+            # Return detailed validation errors
+            error_details = []
+            for field, errors in serializer.errors.items():
+                for error in errors:
+                    error_details.append(f"{field}: {error}")
+            
+            return Response({
+                'error': 'Validation failed',
+                'detail': '; '.join(error_details),
+                'field_errors': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+    except Exception as e:
+        print(f"Upload error: {str(e)}")
+        return Response({
+            'error': 'Upload failed',
+            'detail': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_media_upload_detail(request, upload_id):
+    """Get detailed information about a specific media upload including analysis results"""
+    try:
+        media_upload = MediaUpload.objects.get(id=upload_id, user=request.user)
+        
+        # Get the serialized data
+        upload_data = MediaUploadSerializer(media_upload).data
+        
+        # Add detailed analysis information
+        if media_upload.analysis_result:
+            analysis_result = media_upload.analysis_result
+            
+            # Check if analysis failed and provide specific error messages
+            if not analysis_result.get('success', True):
+                upload_data['analysis_error'] = {
+                    'error': analysis_result.get('error', 'Analysis failed'),
+                    'detail': analysis_result.get('detail', 'No additional details available'),
+                    'recommendations': [
+                        'Try uploading a different image',
+                        'Ensure the image is clear and well-lit',
+                        'Check that the file is a valid image format (JPEG, PNG, WebP)',
+                        'Contact support if the issue persists'
+                    ]
+                }
+            else:
+                # Analysis was successful, provide detailed results
+                upload_data['analysis_success'] = {
+                    'people_count': analysis_result.get('people_count', 0),
+                    'confidence_score': analysis_result.get('confidence_score', 0.0),
+                    'crowd_detected': analysis_result.get('crowd_detected', False),
+                    'is_stampede_risk': analysis_result.get('is_stampede_risk', False),
+                    'status_message': analysis_result.get('status_message', 'Analysis completed'),
+                    'recommendations': analysis_result.get('recommendations', []),
+                    'processing_time': analysis_result.get('processing_time', 0.0),
+                    'fallback_mode': analysis_result.get('fallback_mode', False)
+                }
+        
+        return Response(upload_data)
+        
+    except MediaUpload.DoesNotExist:
+        return Response({
+            'error': 'Upload not found',
+            'detail': 'The requested upload could not be found or you do not have permission to access it.'
+        }, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({
+            'error': 'Failed to retrieve upload details',
+            'detail': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
@@ -321,6 +427,27 @@ def analyze_frame(request):
             processing_time=processing_time
         )
 
+        # Temporal smoothing over recent frames to reduce jitter and false positives
+        try:
+            recent_results = AnalysisResult.objects.filter(
+                live_stream=stream
+            ).order_by('-timestamp')[:5]
+            counts = [r.people_count for r in recent_results if r.people_count is not None]
+            risks = [1 if r.is_stampede_risk else 0 for r in recent_results]
+            smoothed_people = int(round(sum(counts) / len(counts))) if counts else analysis['people_count']
+            smoothed_risk_flag = (sum(risks) >= max(2, len(risks) // 2)) if risks else analysis['is_stampede_risk']
+        except Exception:
+            smoothed_people = analysis['people_count']
+            smoothed_risk_flag = analysis['is_stampede_risk']
+
+        # Compute a normalized risk score to share with clients (0..1)
+        try:
+            raw_score = min(1.0, analysis['people_count'] / 12.0)
+            conf_boost = max(0.0, min(1.0, analysis['confidence_score']))
+            risk_score = round(0.5 * raw_score + 0.5 * conf_boost * raw_score, 3)
+        except Exception:
+            risk_score = 0.0
+
         # Send real-time updates to anyone watching this stream
         try:
             channel_layer = get_channel_layer()
@@ -332,7 +459,12 @@ def analyze_frame(request):
                         'data': {
                             'stream_id': stream.id,
                             'timestamp': timezone.now().isoformat(),
-                            'analysis': analysis,
+                            'analysis': {
+                                **analysis,
+                                'risk_score': risk_score,
+                                'smoothed_people_count': smoothed_people,
+                                'smoothed_risk': smoothed_risk_flag,
+                            },
                         }
                     }
                 )
@@ -340,13 +472,16 @@ def analyze_frame(request):
             print(f"WebSocket broadcast error: {str(e)}")
 
         # If AI thinks there's danger, create an alert
-        if analysis['is_stampede_risk']:
+        if analysis['is_stampede_risk'] or smoothed_risk_flag:
             Alert.objects.create(
                 alert_type='stampede_risk',
-                severity='critical',
-                message=f'Stampede risk detected in stream {stream.stream_name}. '
-                       f'People count: {analysis["people_count"]}, '
-                       f'Confidence: {analysis["confidence_score"]:.2f}',
+                severity='critical' if analysis['is_stampede_risk'] else 'high',
+                message=(
+                    f'Stampede risk detected in stream {stream.stream_name}. '
+                    f'People (raw/smoothed): {analysis["people_count"]}/{smoothed_people}, '
+                    f'Confidence: {analysis["confidence_score"]:.2f}, '
+                    f'Risk score: {risk_score:.2f}'
+                ),
                 analysis_result=analysis_result,
                 live_stream=stream
             )
@@ -359,8 +494,11 @@ def analyze_frame(request):
                             'type': 'alert_message',
                             'data': {
                                 'alert_type': 'stampede_risk',
-                                'severity': 'critical',
-                                'message': f'Stampede risk detected in stream {stream.stream_name}.',
+                                'severity': 'critical' if analysis['is_stampede_risk'] else 'high',
+                                'message': (
+                                    f'Stampede risk detected in stream {stream.stream_name} '
+                                    f'(smoothed people={smoothed_people}, score={risk_score:.2f}).'
+                                ),
                                 'stream_id': stream.id,
                                 'timestamp': timezone.now().isoformat(),
                             }
@@ -497,34 +635,51 @@ def acknowledge_alert(request, alert_id):
 
 
 def analyze_media_async(media_upload_id):
-    """Analyze uploaded media asynchronously with improved error handling"""
+    """Analyze uploaded media asynchronously with comprehensive error handling"""
     try:
         media_upload = MediaUpload.objects.get(id=media_upload_id)
         media_upload.analysis_status = 'processing'
         media_upload.save()
         
-        print(f"Starting analysis for media upload {media_upload_id}: {media_upload.filename}")
+        print(f"🔍 Starting analysis for media upload {media_upload_id}: {media_upload.filename}")
         
-        # Analyze the media file
+        # Use the fixed AI predictor with comprehensive error handling
         start_time = time.time()
         try:
+            # Import the fixed predictor
+            from .ai_predictor_fixed import get_predictor
             predictor = get_predictor()
             analysis = predictor.predict_from_file(media_upload.file.path)
-            print(f"Analysis completed: {analysis}")
-        except Exception as e:
-            print(f"ML prediction error: {str(e)}")
-            # Use enhanced fallback analysis
-            import random
-            people_count = random.randint(1, 6)
-            confidence = 0.6 + random.random() * 0.3
             
+            print(f"✅ Analysis completed successfully: {analysis}")
+            
+            # Check if analysis was successful
+            if not analysis.get('success', True):
+                # Analysis failed but we have specific error information
+                media_upload.analysis_status = 'failed'
+                media_upload.analysis_result = analysis
+                media_upload.save()
+                
+                print(f"❌ Analysis failed with specific error: {analysis.get('error', 'Unknown error')}")
+                return  # Exit early, don't create analysis result
+                
+        except Exception as e:
+            print(f"🚨 Critical ML prediction error: {str(e)}")
+            print(f"📋 Traceback: {traceback.format_exc()}")
+            
+            # Create a detailed error analysis result
             analysis = {
-                'crowd_detected': people_count >= 2,
-                'confidence_score': round(confidence, 2),
-                'people_count': people_count,
-                'is_stampede_risk': people_count >= 5 and confidence > 0.8,
-                'status_message': f"Analysis completed - {people_count} people detected",
-                'fallback_mode': True
+                'success': False,
+                'error': 'AI system unavailable',
+                'detail': f'The AI analysis system encountered an error: {str(e)}. Using basic fallback analysis.',
+                'crowd_detected': False,
+                'confidence_score': 0.0,
+                'people_count': 0,
+                'is_stampede_risk': False,
+                'status_message': f"Analysis system error: {str(e)}",
+                'fallback_mode': True,
+                'error_type': type(e).__name__,
+                'processing_time': time.time() - start_time
             }
         
         processing_time = time.time() - start_time
@@ -584,28 +739,71 @@ def analyze_media_async(media_upload_id):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def health_check(request):
-    """Health check endpoint for deployment monitoring"""
+    """Enhanced health check endpoint for deployment monitoring and debugging"""
     try:
+        import os
+        from django.conf import settings
+        
         # Check database connection
         from django.db import connection
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT 1")
+        db_status = "connected"
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+        except Exception as db_error:
+            db_status = f"error: {str(db_error)}"
         
         # Check if ML predictor can be loaded (with fallback)
         predictor_status = "available"
+        predictor_info = {}
         try:
             predictor = get_predictor()
             if predictor is None:
                 predictor_status = "demo_mode"
-        except Exception:
+                predictor_info = {"mode": "demo", "reason": "ML model not available"}
+            else:
+                predictor_info = {"mode": "production", "model_loaded": True}
+        except Exception as pred_error:
             predictor_status = "demo_mode"
+            predictor_info = {"mode": "demo", "error": str(pred_error)}
+        
+        # Check file upload configuration
+        upload_config = {
+            "max_file_size": getattr(settings, 'FILE_UPLOAD_MAX_MEMORY_SIZE', 'not_set'),
+            "max_data_size": getattr(settings, 'DATA_UPLOAD_MAX_MEMORY_SIZE', 'not_set'),
+            "media_root": getattr(settings, 'MEDIA_ROOT', 'not_set'),
+        }
+        
+        # Check CORS configuration
+        cors_config = {
+            "allow_all_origins": getattr(settings, 'CORS_ALLOW_ALL_ORIGINS', False),
+            "allowed_origins": getattr(settings, 'CORS_ALLOWED_ORIGINS', []),
+            "allow_credentials": getattr(settings, 'CORS_ALLOW_CREDENTIALS', False),
+        }
+        
+        # System information
+        system_info = {
+            "debug_mode": settings.DEBUG,
+            "environment": os.environ.get('ENVIRONMENT', 'development'),
+            "python_version": f"{os.sys.version_info.major}.{os.sys.version_info.minor}.{os.sys.version_info.micro}",
+        }
         
         return Response({
             'status': 'healthy',
             'timestamp': timezone.now().isoformat(),
-            'database': 'connected',
+            'database': db_status,
             'ml_predictor': predictor_status,
-            'version': '1.0.0'
+            'predictor_info': predictor_info,
+            'upload_config': upload_config,
+            'cors_config': cors_config,
+            'system_info': system_info,
+            'version': '1.0.0',
+            'endpoints': {
+                'auth': '/api/auth/',
+                'media': '/api/media/',
+                'analysis': '/api/analysis/',
+                'health': '/api/health/'
+            }
         }, status=status.HTTP_200_OK)
     
     except Exception as e:
@@ -615,3 +813,162 @@ def health_check(request):
             'error': str(e),
             'version': '1.0.0'
         }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+
+# Missing JWT Token Refresh Endpoint
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def token_refresh(request):
+    """Refresh JWT access token using refresh token"""
+    try:
+        refresh_token = request.data.get('refresh')
+        if not refresh_token:
+            return Response({
+                'error': 'Refresh token is required',
+                'detail': 'Please provide a valid refresh token'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            refresh = RefreshToken(refresh_token)
+            access_token = str(refresh.access_token)
+            
+            return Response({
+                'access': access_token,
+                'message': 'Token refreshed successfully'
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as token_error:
+            return Response({
+                'error': 'Invalid refresh token',
+                'detail': 'The provided refresh token is invalid or expired'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+            
+    except Exception as e:
+        return Response({
+            'error': 'Token refresh failed',
+            'detail': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# Missing Analytics Endpoint
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_analytics(request):
+    """Get analysis analytics and statistics"""
+    try:
+        time_range = request.GET.get('time_range', '24h')
+        
+        # Calculate time filter based on range
+        from datetime import datetime, timedelta
+        now = timezone.now()
+        
+        if time_range == '1h':
+            start_time = now - timedelta(hours=1)
+        elif time_range == '24h':
+            start_time = now - timedelta(hours=24)
+        elif time_range == '7d':
+            start_time = now - timedelta(days=7)
+        elif time_range == '30d':
+            start_time = now - timedelta(days=30)
+        else:
+            start_time = now - timedelta(hours=24)  # Default to 24h
+        
+        # Get analysis results in time range
+        results = AnalysisResult.objects.filter(
+            timestamp__gte=start_time
+        ).order_by('-timestamp')
+        
+        # Calculate statistics
+        total_analyses = results.count()
+        high_risk_count = results.filter(is_stampede_risk=True).count()
+        avg_people_count = results.aggregate(
+            avg_count=Avg('people_count')
+        )['avg_count'] or 0
+        
+        # Get hourly breakdown for charts
+        hourly_data = []
+        for i in range(24):
+            hour_start = now - timedelta(hours=i+1)
+            hour_end = now - timedelta(hours=i)
+            
+            hour_results = results.filter(
+                timestamp__gte=hour_start,
+                timestamp__lt=hour_end
+            )
+            
+            hourly_data.append({
+                'hour': hour_start.strftime('%H:00'),
+                'analyses': hour_results.count(),
+                'high_risk': hour_results.filter(is_stampede_risk=True).count(),
+                'avg_people': hour_results.aggregate(
+                    avg=Avg('people_count')
+                )['avg'] or 0
+            })
+        
+        return Response({
+            'time_range': time_range,
+            'summary': {
+                'total_analyses': total_analyses,
+                'high_risk_detections': high_risk_count,
+                'average_people_count': round(avg_people_count, 1),
+                'risk_percentage': round((high_risk_count / total_analyses * 100) if total_analyses > 0 else 0, 1)
+            },
+            'hourly_data': list(reversed(hourly_data)),  # Most recent first
+            'recent_analyses': AnalysisResultSerializer(
+                results[:10], many=True
+            ).data
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({
+            'error': 'Failed to get analytics',
+            'detail': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# Missing Alert Stats Endpoint
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_alert_stats(request):
+    """Get alert statistics and summary"""
+    try:
+        # Get all alerts
+        all_alerts = Alert.objects.all()
+        
+        # Calculate statistics
+        total_alerts = all_alerts.count()
+        active_alerts = all_alerts.filter(acknowledged=False).count()
+        acknowledged_alerts = all_alerts.filter(acknowledged=True).count()
+        
+        # Get alerts by severity
+        high_severity = all_alerts.filter(severity='high').count()
+        medium_severity = all_alerts.filter(severity='medium').count()
+        low_severity = all_alerts.filter(severity='low').count()
+        
+        # Get recent alerts (last 24 hours)
+        from datetime import timedelta
+        recent_time = timezone.now() - timedelta(hours=24)
+        recent_alerts = all_alerts.filter(created_at__gte=recent_time).count()
+        
+        return Response({
+            'summary': {
+                'total_alerts': total_alerts,
+                'active_alerts': active_alerts,
+                'acknowledged_alerts': acknowledged_alerts,
+                'recent_alerts_24h': recent_alerts
+            },
+            'by_severity': {
+                'high': high_severity,
+                'medium': medium_severity,
+                'low': low_severity
+            },
+            'acknowledgment_rate': round(
+                (acknowledged_alerts / total_alerts * 100) if total_alerts > 0 else 0, 1
+            )
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({
+            'error': 'Failed to get alert statistics',
+            'detail': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

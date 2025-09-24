@@ -154,29 +154,72 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,
 }
 
-# CORS settings
-FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
+# CORS settings for development and production
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5176')
 PRODUCTION_FRONTEND_URL = os.environ.get('PRODUCTION_FRONTEND_URL', '')
 
+# Development CORS configuration - FIXED for port 5176
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    FRONTEND_URL,
+    "http://127.0.0.1:5173", 
+    "http://localhost:5176",
+    "http://127.0.0.1:5176",
+    "http://0.0.0.0:5176",
+    # Add your local IP for network access (update with your actual IP)
+    "http://192.168.1.100:5176",
+    "http://192.168.0.100:5176",
+    "http://10.0.0.100:5176",
 ]
 
 # Add production frontend URL if provided
 if PRODUCTION_FRONTEND_URL:
     CORS_ALLOWED_ORIGINS.append(PRODUCTION_FRONTEND_URL)
 
-# Allow all origins in development
+# CORS configuration
 if DEBUG:
+    # Allow all origins in development for easier testing
     CORS_ALLOW_ALL_ORIGINS = True
+    CORS_ALLOWED_ORIGIN_REGEXES = [
+        r"^http://localhost:\d+$",
+        r"^http://127\.0\.0\.1:\d+$",
+        r"^http://0\.0\.0\.0:\d+$",
+        r"^http://192\.168\.\d+\.\d+:\d+$",  # Local network
+    ]
 else:
     CORS_ALLOW_ALL_ORIGINS = False
 
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+# File Upload Configuration - FIXED for 100MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100MB
+FILE_UPLOAD_PERMISSIONS = 0o644
+
+# Media files configuration
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Static files configuration
 STATIC_URL = '/static/'
@@ -193,6 +236,10 @@ CHANNEL_LAYERS = {
 # File upload settings
 FILE_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100MB
+
+# Additional upload settings
+FILE_UPLOAD_PERMISSIONS = 0o644
+FILE_UPLOAD_DIRECTORY_PERMISSIONS = 0o755
 
 # ML Model settings
 ML_MODEL_PATH = os.environ.get('ML_MODEL_PATH', os.path.join(BASE_DIR.parent, 'stampede_model.ckpt'))

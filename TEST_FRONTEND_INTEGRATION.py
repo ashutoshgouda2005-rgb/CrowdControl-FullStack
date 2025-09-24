@@ -16,7 +16,7 @@ class FrontendIntegrationTester:
     
     def __init__(self):
         self.base_url = "http://127.0.0.1:8000"
-        self.frontend_url = "http://localhost:5177"  # Updated to current running port
+        self.frontend_url = "http://localhost:5176"  # Updated to match Vite server port
         self.access_token = None
         self.test_results = []
         
@@ -378,7 +378,7 @@ def main():
     
     if success:
         print("\n[NEXT] Next steps:")
-        print("1. Open your browser to http://localhost:5173")
+        print("1. Open your browser to http://localhost:5176")
         print("2. Login with admin/admin123")
         print("3. Test photo upload and live detection features")
         print("4. Check browser DevTools for any console errors")
